@@ -1,13 +1,26 @@
 <!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>TeamPort</title><meta name="apple-mobile-web-app-title" content="TeamPort"><link rel="icon" href="favicon.ico" sizes="any"><link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="apple-touch-icon" href="apple-touch-icon.png"></head>
-<body style="font-family:sans-serif;padding:24px;color:#555">読み込み中…<script>
+<body style="font-family:sans-serif;padding:24px;color:#555"><span id="tp-wait">読み込み中…</span><script>
 var API='https://script.google.com/macros/s/AKfycbxNskHxuzZrDxLz1vK22tv52703HfByW_waM6Zg8N0ciP6qW8JPMXmgcSKx-nr-ghKU/exec';
-fetch(API,{method:'POST',body:JSON.stringify({fn:'getClientSource',args:[]}),headers:{'Content-Type':'text/plain;charset=utf-8'},credentials:'omit'})
-.then(function(r){return r.json()}).then(function(j){
-  if(j.error)throw new Error(j.error);
-  var d=new DOMParser().parseFromString(j.result,'text/html');
+var K='tp_src',cached=null;try{cached=localStorage.getItem(K)}catch(e){}
+function run(src){
+  var d=new DOMParser().parseFromString(src,'text/html');
   document.head.innerHTML=d.head.innerHTML;
   document.body.removeAttribute('style');
   document.body.innerHTML=d.body.innerHTML;
   document.body.querySelectorAll('script').forEach(function(o){var s=document.createElement('script');s.textContent=o.textContent;o.replaceWith(s)});
-}).catch(function(e){document.body.textContent='読み込めませんでした。電波を確認して、ページを開き直してください。（'+e.message+'）'});
+}
+function newer(){
+  var b=document.createElement('button');b.type='button';b.textContent='新しい版があります（押して更新）';
+  b.setAttribute('style','position:fixed;left:50%;transform:translateX(-50%);bottom:calc(76px + env(safe-area-inset-bottom));z-index:9999;padding:10px 16px;border:0;border-radius:999px;background:#0B6E9E;color:#fff;font-size:14px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.25)');
+  b.onclick=function(){location.reload()};document.body.appendChild(b);
+}
+// 前回保存した画面をすぐ表示し、裏で最新の画面を取りに行く（変わっていれば次から使う）
+if(cached){try{run(cached)}catch(e){cached=null}}
+fetch(API,{method:'POST',body:JSON.stringify({fn:'getClientSource',args:[]}),headers:{'Content-Type':'text/plain;charset=utf-8'},credentials:'omit'})
+.then(function(r){return r.json()}).then(function(j){
+  if(j.error)throw new Error(j.error);
+  if(j.result===cached)return;
+  try{localStorage.setItem(K,j.result)}catch(e){}
+  if(cached)newer();else run(j.result);
+}).catch(function(e){if(!cached)document.body.textContent='読み込めませんでした。電波を確認して、ページを開き直してください。（'+e.message+'）'});
 </script></body></html>
