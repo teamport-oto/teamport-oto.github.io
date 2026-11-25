@@ -16,11 +16,28 @@ function newer(){
 }
 // 前回保存した画面をすぐ表示し、裏で最新の画面を取りに行く（変わっていれば次から使う）
 if(cached){try{run(cached)}catch(e){cached=null}}
-fetch(API,{method:'POST',body:JSON.stringify({fn:'getClientSource',args:[]}),headers:{'Content-Type':'text/plain;charset=utf-8'},credentials:'omit'})
+var loading=false;
+function load(){
+loading=true;var ac=window.AbortController?new AbortController():null,tm=setTimeout(function(){if(ac)ac.abort()},20000);
+fetch(API,{method:'POST',signal:ac&&ac.signal,body:JSON.stringify({fn:'getClientSource',args:[]}),headers:{'Content-Type':'text/plain;charset=utf-8'},credentials:'omit'})
 .then(function(r){return r.json()}).then(function(j){
   if(j.error)throw new Error(j.error);
   if(j.result===cached)return;
   try{localStorage.setItem(K,j.result)}catch(e){}
-  if(cached)newer();else run(j.result);
-}).catch(function(e){if(!cached)document.body.textContent='読み込めませんでした。電波を確認して、ページを開き直してください。（'+e.message+'）'});
+  if(cached)newer();else{cached=j.result;run(j.result)}
+}).catch(function(e){if(!cached)fail(e)}).then(function(){clearTimeout(tm);loading=false});
+}
+// 初めて開くときに電波が悪い場合：止まったままにせず、再試行ボタンを出し、電波が戻ったら自動で再試行
+function fail(e){
+  document.body.innerHTML='';
+  var p=document.createElement('p');p.textContent='読み込めませんでした。電波の良い場所で、もう一度お試しください。（'+(e.name==='AbortError'?'時間切れ':e.message)+'）';
+  var b=document.createElement('button');b.type='button';b.textContent='もう一度読み込む';
+  b.setAttribute('style','padding:10px 16px;border:0;border-radius:999px;background:#0B6E9E;color:#fff;font-size:14px;font-weight:700');
+  b.onclick=retry;document.body.append(p,b);
+}
+function retry(){if(cached||loading)return;document.body.textContent='読み込み中…';load()}
+window.addEventListener('online',function(){retry()});
+load();
+// 入口ページ自体を端末に保存（次から電波が無くても開ける）
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(function(){});
 </script></body></html>
